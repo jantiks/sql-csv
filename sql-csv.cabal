@@ -35,10 +35,12 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , cassava
     , parsec
     , text
     , time
+    , vector
   default-language: Haskell2010
 
 executable sql-csv-exe
@@ -52,11 +54,13 @@ executable sql-csv-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , cassava
     , parsec
     , sql-csv
     , text
     , time
+    , vector
   default-language: Haskell2010
 
 test-suite sql-csv-test
@@ -71,9 +75,11 @@ test-suite sql-csv-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , cassava
     , parsec
     , sql-csv
     , text
     , time
+    , vector
   default-language: Haskell2010

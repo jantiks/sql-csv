@@ -25,6 +25,8 @@ dependencies:
 - text
 - parsec
 - time
+- bytestring
+- vector
 
 ghc-options:
 - -Wall
