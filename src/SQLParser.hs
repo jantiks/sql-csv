@@ -14,6 +14,7 @@ import Control.Monad (void)
 import Data.Char
 import Data.List
 import System.FilePath (isAbsolute, takeExtension)
+import Debug.Trace (trace)
 
 data SQLQuery
   = SelectQuery [String] String (Maybe Condition)
@@ -32,7 +33,7 @@ caseInsensitiveString :: String -> Parser String
 caseInsensitiveString = try . mapM (\c -> char (toLower c) <|> char (toUpper c))
 
 parseSQL :: Parser SQLQuery
-parseSQL = do
+parseSQL = trace "RUNNING PROG" $ do
   spaces
   query <- try parseSelect
         <|> try parseUpdate
@@ -86,11 +87,12 @@ parseInsert = do
   void spaces
   table <- parseTable
   void spaces
-  fields <- between (char '(') (char ')') (sepBy (many1 alphaNum) (char ','))
+  fields <- between (char '(') (char ')') (sepBy1 (many1 alphaNum) (char ','))
   void spaces
   void $ caseInsensitiveString "VALUES"
   void spaces
-  values <- between (char '(') (char ')') (sepBy (many1 (noneOf ",)")) (char ','))
+  values <- between (char '(') (char ')') (sepBy1 (many1 (noneOf ",)")) (char ','))
+  trace ("Values: " ++ show values) $ return ()
   return $ InsertQuery table fields values
 
 parseDelete :: Parser SQLQuery
@@ -118,11 +120,11 @@ parseTable = do
 parseWhere :: Parser Condition
 parseWhere = do
   void $ caseInsensitiveString "WHERE"
-  void consumeSpaces
+  void spaces
   f <- many1 alphaNum
-  void consumeSpaces
+  void spaces
   op <- parseOperator
-  void consumeSpaces
+  void spaces
   v <- many1 (noneOf " \t\n")
   return $ Condition f op v
 
@@ -132,6 +134,3 @@ parseOperator = try (string ">=")
             <|> string "="
             <|> string ">"
             <|> string "<"
-
-consumeSpaces :: Parser ()
-consumeSpaces = skipMany1 (satisfy isSpace)

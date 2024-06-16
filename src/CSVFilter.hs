@@ -6,6 +6,7 @@ module CSVFilter (
     recordToText,
     runSQLQuery,
     runDeleteQuery,
+    runInsertQuery,
     Condition(..)
 ) where
 
@@ -71,4 +72,22 @@ runDeleteQuery fileName condition = do
             let remainingRecords = V.filter (not . applyCondition condition) v
             let updatedData = encodeByName header (V.toList remainingRecords)
             BL8.writeFile fileName updatedData
-            putStrLn $ "Deleted records from " ++ fileName
+            putStrLn $ "Records deleted"
+
+runInsertQuery :: FilePath -> [Text] -> [Text] -> IO ()
+runInsertQuery fileName fields values = do
+    putStrLn $ "fileName: " ++ fileName
+    putStrLn $ "fields: " ++ show fields
+    putStrLn $ "values: " ++ show values
+
+    csvData <- BL.readFile fileName
+    case decodeByName csvData of
+        Left err -> error err
+        Right (header, v) -> do
+            let newRecord = HM.fromList $ zip fields values
+            putStrLn $ "newRecord: " ++ show newRecord
+            let updatedRecords = V.snoc v newRecord
+            putStrLn $ "updatedRecords: " ++ show updatedRecords
+            let updatedData = encodeByName header (V.toList updatedRecords)
+            BL8.writeFile fileName updatedData
+            putStrLn $ "Records inserted into " ++ fileName
