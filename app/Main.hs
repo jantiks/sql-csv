@@ -27,9 +27,12 @@ executeSQL (SelectQuery fields table whereClause) = do
     -- print records
 
 
+executeSQL (DeleteQuery table whereClause) = do
+    case whereClause of
+        Nothing -> putStrLn "DELETE Query requires a WHERE clause"
+        Just (Condition field op value) -> CF.runDeleteQuery table (CF.Condition (T.pack field) (T.pack op) (T.pack value))
 executeSQL (UpdateQuery _ _ _) = putStrLn "UPDATE Query is not supported yet"
 executeSQL (InsertQuery _ _ _) = putStrLn "INSERT Query is not supported yet"
-executeSQL (DeleteQuery _ _) = putStrLn "DELETE Query is not supported yet"
 
 
 -- printSQL (UpdateQuery table updates whereClause) = do
