@@ -27,6 +27,9 @@ dependencies:
 - time
 - bytestring
 - vector
+- Frames
+- unordered-containers
+- filepath
 
 ghc-options:
 - -Wall
