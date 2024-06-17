@@ -7,6 +7,7 @@ module CSVFilter (
     runSQLQuery,
     runDeleteQuery,
     runInsertQuery,
+    runUpdateQuery,
     Condition(..)
 ) where
 
@@ -91,3 +92,19 @@ runInsertQuery fileName fields values = do
             let updatedData = encodeByName header (V.toList updatedRecords)
             BL8.writeFile fileName updatedData
             putStrLn $ "Records inserted into " ++ fileName
+
+runUpdateQuery :: FilePath -> [(Text, Text)] -> Condition -> IO ()
+runUpdateQuery fileName updates condition = do
+    csvData <- BL.readFile fileName
+    case decodeByName csvData of
+        Left err -> error err
+        Right (header, v) -> do
+            let updatedRecords = V.map updateIfMatches v
+            let updatedData = encodeByName header (V.toList updatedRecords)
+            BL8.writeFile fileName updatedData
+            putStrLn "Records updated"
+  where
+    updateIfMatches record =
+        if applyCondition condition record
+        then foldr (uncurry HM.insert) record updates
+        else record

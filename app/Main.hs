@@ -48,7 +48,11 @@ executeSQL (DeleteQuery table whereClause) = do
         Nothing -> putStrLn "DELETE Query requires a WHERE clause"
         Just (Condition f op v) -> CF.runDeleteQuery table (CF.Condition (T.pack f) (T.pack op) (T.pack v))
 
-executeSQL (UpdateQuery _ _ _) = putStrLn "UPDATE Query is not supported yet"
+executeSQL (UpdateQuery table updates whereClause) = do
+    case whereClause of
+        Nothing -> putStrLn "UPDATE Query requires a WHERE clause"
+        Just (Condition f op v) -> CF.runUpdateQuery table (map (\(fld, val) -> (T.pack fld, T.pack val)) updates) (CF.Condition (T.pack f) (T.pack op) (T.pack v))
+        
 executeSQL (InsertQuery table fields values) = do
     putStrLn $ "asd fileName: " ++ table
     putStrLn $ "fields: " ++ show fields
