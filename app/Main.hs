@@ -10,21 +10,6 @@ import Data.List (intercalate)
 import qualified Data.Text as T
 import Debug.Trace (trace)
 
--- main :: IO ()
--- main = do
---   -- Test INSERT
---   args <- getArgs
---   let insertSQL = "INSERT INTO test.csv (id, name) VALUES (1, 'Alice')"
---   case parse parseSQL "" insertSQL of
---     Left err  -> print err
---     Right sql -> print sql
-
---   -- Test UPDATE
---   let updateSQL = "UPDATE /sd/sdf/test.csv SET name='Bob' WHERE id=1"
---   case parse parseSQL "" updateSQL of
---     Left err  -> print err
---     Right sql -> print sql
-
 main :: IO ()
 main = do
   args <- getArgs
@@ -59,45 +44,3 @@ executeSQL (InsertQuery table fields values) = do
     putStrLn $ "values: " ++ show values
 
     CF.runInsertQuery table (map T.pack fields) (map T.pack values)
-
-
--- printSQL (UpdateQuery table updates whereClause) = do
---   putStrLn "UPDATE Query"
---   putStrLn $ "Table: " ++ show table
---   putStrLn $ "Updates: " ++ show updates
---   case whereClause of
---     Nothing -> putStrLn "No WHERE clause"
---     Just (Condition field op value) -> do
---       putStrLn "WHERE Clause:"
---       putStrLn $ "Field: " ++ field
---       putStrLn $ "Operator: " ++ op
---       putStrLn $ "Value: " ++ value
-
--- printSQL (InsertQuery table fields values) = do
---   putStrLn "INSERT Query"
---   putStrLn $ "Table: " ++ show table
---   putStrLn $ "Fields: " ++ show fields
---   putStrLn $ "Values: " ++ show values
-
--- printSQL (DeleteQuery table whereClause) = do
---   putStrLn "DELETE Query"
---   putStrLn $ "Table: " ++ show table
---   case whereClause of
---     Nothing -> putStrLn "No WHERE clause"
---     Just (Condition field op value) -> do
---       putStrLn "WHERE Clause:"
---       putStrLn $ "Field: " ++ field
---       putStrLn $ "Operator: " ++ op
---       putStrLn $ "Value: " ++ value
-
-
--- import CSVFilter
--- import qualified Data.Text as T
--- import System.Environment (getArgs)
-
--- main :: IO ()
--- main = do
---     args <- getArgs
---     case args of
---         [fileName, fieldName, conditionStr] -> runCSVFilter fileName (T.pack fieldName) (T.pack conditionStr)
---         _ -> putStrLn "Usage: csvreader <fileName> <fieldName> <condition>"
