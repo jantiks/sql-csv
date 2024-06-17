@@ -10,6 +10,21 @@ import Data.List (intercalate)
 import qualified Data.Text as T
 import Debug.Trace (trace)
 
+-- main :: IO ()
+-- main = do
+--   -- Test INSERT
+--   args <- getArgs
+--   let insertSQL = "INSERT INTO test.csv (id, name) VALUES (1, 'Alice')"
+--   case parse parseSQL "" insertSQL of
+--     Left err  -> print err
+--     Right sql -> print sql
+
+--   -- Test UPDATE
+--   let updateSQL = "UPDATE /sd/sdf/test.csv SET name='Bob' WHERE id=1"
+--   case parse parseSQL "" updateSQL of
+--     Left err  -> print err
+--     Right sql -> print sql
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -23,15 +38,15 @@ executeSQL (SelectQuery fields table whereClause) = do
     let fieldNames = if fields == ["*"] then [] else map T.pack fields
     case whereClause of
         Nothing -> CF.runSQLQuery table fieldNames (CF.Condition "" "=" "")
-        Just (Condition field op value) ->
-            CF.runSQLQuery table fieldNames (CF.Condition (T.pack field) (T.pack op) (T.pack value))
+        Just (Condition f op v) ->
+            CF.runSQLQuery table fieldNames (CF.Condition (T.pack f) (T.pack op) (T.pack v))
     -- print records
 
 
 executeSQL (DeleteQuery table whereClause) = do
     case whereClause of
         Nothing -> putStrLn "DELETE Query requires a WHERE clause"
-        Just (Condition field op value) -> CF.runDeleteQuery table (CF.Condition (T.pack field) (T.pack op) (T.pack value))
+        Just (Condition f op v) -> CF.runDeleteQuery table (CF.Condition (T.pack f) (T.pack op) (T.pack v))
 
 executeSQL (UpdateQuery _ _ _) = putStrLn "UPDATE Query is not supported yet"
 executeSQL (InsertQuery table fields values) = do
