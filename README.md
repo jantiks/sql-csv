@@ -19,6 +19,10 @@
 ### Select
 `stack exec sql-csv-exe 'SELECT * FROM /absolute/path/to/app/data.csv WHERE age = 30'`
 
+`stack exec sql-csv-exe 'SELECT name,age FROM /absolute/path/to/app/data.csv WHERE age > 30'`
+
+`stack exec sql-csv-exe 'SELECT name FROM /absolute/path/to/app/data.csv WHERE age < 30'`
+
 ### Delete
 `stack exec sql-csv-exe 'DELETE FROM /absolute/path/to/app/data.csv WHERE age = 30'`
 
