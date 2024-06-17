@@ -32,7 +32,7 @@ caseInsensitiveString :: String -> Parser String
 caseInsensitiveString = try . mapM (\c -> char (toLower c) <|> char (toUpper c))
 
 parseSQL :: Parser SQLQuery
-parseSQL = trace "Running parseSQL" $ do
+parseSQL = do
   spaces
   query <- try parseSelect
         <|> try parseUpdate
@@ -43,7 +43,7 @@ parseSQL = trace "Running parseSQL" $ do
 
 -- | Parse SELECT.
 parseSelect :: Parser SQLQuery
-parseSelect = trace "Parsing SELECT" $ do
+parseSelect = do
   void $ caseInsensitiveString "SELECT"
   void spaces
   fields <- parseSelectFields
@@ -56,7 +56,7 @@ parseSelect = trace "Parsing SELECT" $ do
   return $ SelectQuery fields table whereClause
 
 parseUpdate :: Parser SQLQuery
-parseUpdate = trace "Parsing UPDATE" $ do
+parseUpdate = do
   void $ caseInsensitiveString "UPDATE"
   void spaces
   table <- parseTable
@@ -72,7 +72,7 @@ parseUpdates :: Parser [(String, String)]
 parseUpdates = sepBy1 parseUpdateField (char ',')
 
 parseUpdateField :: Parser (String, String)
-parseUpdateField = trace "Parsing Update Field" $ do
+parseUpdateField = do
   f <- many1 alphaNum
   void spaces
   void $ char '='
@@ -81,7 +81,7 @@ parseUpdateField = trace "Parsing Update Field" $ do
   return (f, v)
 
 parseInsert :: Parser SQLQuery
-parseInsert = trace "Parsing INSERT" $ do
+parseInsert = do
   void $ caseInsensitiveString "INSERT INTO"
   void spaces
   table <- parseTable
@@ -96,7 +96,7 @@ parseInsert = trace "Parsing INSERT" $ do
   return $ InsertQuery table fields values
 
 parseDelete :: Parser SQLQuery
-parseDelete = trace "Parsing DELETE" $ do
+parseDelete = do
   void $ caseInsensitiveString "DELETE FROM"
   void spaces
   table <- parseTable
@@ -108,7 +108,7 @@ parseSelectFields :: Parser [String]
 parseSelectFields = sepBy1 (many1 (alphaNum <|> char '*')) (char ',')
 
 parseTable :: Parser String
-parseTable = trace "Parsing Table" $ do
+parseTable = do
   tableName <- many1 (noneOf " \t\n")
   trace ("Table name: " ++ tableName) $ do
     let ext = takeExtension tableName
@@ -117,7 +117,7 @@ parseTable = trace "Parsing Table" $ do
       else fail "Table name must end with .csv"
 
 parseWhere :: Parser Condition
-parseWhere = trace "Parsing WHERE" $ do
+parseWhere = do
   void $ caseInsensitiveString "WHERE"
   void spaces
   f <- many1 alphaNum
@@ -135,21 +135,15 @@ parseOperator = try (string ">=")
             <|> string "<"
 
 parseField :: Parser String
-parseField = trace "Parsing Field" $ do
-  inputBefore <- getInput
-  trace ("Input before parsing field: " ++ show inputBefore) $ return ()
+parseField = do
   spaces
   f <- many1 (noneOf ",)")
-  trace ("Parsed field: " ++ f) $ return ()
-  inputAfter <- getInput
-  trace ("Input after parsing field: " ++ show inputAfter) $ return ()
   spaces
   return f
 
 parseValue :: Parser String
-parseValue = trace "Parsing Value" $ do
+parseValue = do
   spaces
   v <- many1 (noneOf ",)")
-  trace ("Parsed value: " ++ v) $ do
-    spaces
-    return v
+  spaces
+  return v
