@@ -2,7 +2,7 @@
 
 ## Overview
 
-`sql-csv` is a tool to run SQL like queries on CSV files. Currently, it supports `SELECT` and `DELETE` operations.
+`sql-csv` is a tool to run SQL like queries on CSV files. Currently, it supports `SELECT`, `DELETE`, `INSERT`, `UPDATE` operations.
 
 ## Prerequisites
 
