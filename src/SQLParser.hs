@@ -138,6 +138,7 @@ parseField :: Parser String
 parseField = trace "Parsing Field" $ do
   inputBefore <- getInput
   trace ("Input before parsing field: " ++ show inputBefore) $ return ()
+  spaces
   f <- many1 (noneOf ",)")
   trace ("Parsed field: " ++ f) $ return ()
   inputAfter <- getInput
@@ -147,6 +148,7 @@ parseField = trace "Parsing Field" $ do
 
 parseValue :: Parser String
 parseValue = trace "Parsing Value" $ do
+  spaces
   v <- many1 (noneOf ",)")
   trace ("Parsed value: " ++ v) $ do
     spaces
