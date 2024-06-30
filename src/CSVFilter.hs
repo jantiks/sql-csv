@@ -45,16 +45,15 @@ conditionIsEmpty (Condition field op value) = T.null field && T.null op && T.nul
 
 applyCondition :: Condition -> CSVRecord -> Bool
 applyCondition (Condition field op value) record =
-    if T.null field && T.null op && T.null value then True
-    else case HM.lookup field record of
+    (T.null field && T.null op && T.null value) || (case HM.lookup field record of
         Nothing -> False
         Just val -> case op of
             "="  -> val == value
-            ">"  -> maybe False (> (readT value)) (readTMaybe val)
-            "<"  -> maybe False (< (readT value)) (readTMaybe val)
-            ">=" -> maybe False (>= (readT value)) (readTMaybe val)
-            "<=" -> maybe False (<= (readT value)) (readTMaybe val)
-            _    -> False
+            ">"  -> maybe False (> readT value) (readTMaybe val)
+            "<"  -> maybe False (< readT value) (readTMaybe val)
+            ">=" -> maybe False (>= readT value) (readTMaybe val)
+            "<=" -> maybe False (<= readT value) (readTMaybe val)
+            _    -> False)
   where
     readT :: Text -> Int
     readT = read . T.unpack
