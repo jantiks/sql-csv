@@ -61,6 +61,7 @@ applyCondition (Condition field op value) record =
 
 runSQLQuery :: FilePath -> [Text] -> Condition -> IO ()
 runSQLQuery fileName fields condition = do
+    putStrLn $ "runSQLQuery with cond: " ++ show condition
     records <- filterCSV fileName (applyCondition condition)
     let selectFields rec = if null fields then rec
                            else HM.filterWithKey (\k _ -> k `elem` fields) rec
