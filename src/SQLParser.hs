@@ -41,30 +41,21 @@ parseSQL = do
   spaces
   return query
 
+str :: String -> Parser String
+str s = caseInsensitiveString s <* spaces
+
 -- | Parse SELECT.
 parseSelect :: Parser SQLQuery
 parseSelect = do
-  caseInsensitiveString "SELECT"
-  spaces
-  fields <- parseSelectFields
-  spaces
-  caseInsensitiveString "FROM"
-  spaces
-  table <- parseTable
-  spaces
+  fields <- str "SELECT" *> parseSelectFields <* spaces
+  table <- str "FROM" *> parseTable <* spaces
   whereClause <- optionMaybe parseWhere
   return $ SelectQuery fields table whereClause
 
 parseUpdate :: Parser SQLQuery
 parseUpdate = do
-  caseInsensitiveString "UPDATE"
-  spaces
-  table <- parseTable
-  spaces
-  caseInsensitiveString "SET"
-  spaces
-  updates <- parseUpdates
-  spaces
+  table <- str "UPDATE" *> parseTable <* spaces
+  updates <- str "SET" *> parseUpdates <* spaces
   whereClause <- optionMaybe parseWhere
   return $ UpdateQuery table updates whereClause
 
@@ -82,25 +73,18 @@ parseUpdateField = do
 
 parseInsert :: Parser SQLQuery
 parseInsert = do
-  caseInsensitiveString "INSERT INTO"
-  void spaces
-  table <- parseTable
+  table <- str "INSERT INTO" *> parseTable <* spaces
   spaces
   fields <- between (char '(') (char ')') (sepBy1 parseField (char ','))
   trace ("Parsed fields: " ++ show fields) $ return ()
   spaces
-  caseInsensitiveString "VALUES"
-  spaces
-  values <- between (char '(') (char ')') (sepBy1 parseValue (char ','))
+  values <- str "VALUES" *> between (char '(') (char ')') (sepBy1 parseValue (char ','))
   trace ("Parsed values: " ++ show values) $ return ()
   return $ InsertQuery table fields values
 
 parseDelete :: Parser SQLQuery
 parseDelete = do
-  caseInsensitiveString "DELETE FROM"
-  spaces
-  table <- parseTable
-  spaces
+  table <- str "DELETE FROM" *> parseTable <* spaces
   whereClause <- optionMaybe parseWhere
   return $ DeleteQuery table whereClause
 
