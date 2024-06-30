@@ -93,12 +93,16 @@ parseTable = do
       then return tableName
       else fail "Table name must end with .csv"
 
+stripQuotes :: String -> String
+stripQuotes = reverse . dropWhile (== '"') . reverse . dropWhile (== '"')
+
 parseWhere :: Parser Condition
 parseWhere = option (Condition "" "" "") $ do
   f <- str "WHERE" *> many1 alphaNum <* spaces
   op <- parseOperator <* spaces
   v <- many1 (noneOf " \t\n")
-  return $ Condition f op v
+  return $ Condition f op (stripQuotes v)
+
 
 parseOperator :: Parser String
 parseOperator = try (string ">=")

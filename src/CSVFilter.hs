@@ -39,17 +39,24 @@ filterCSV fileName condition = do
 recordToText :: CSVRecord -> Text
 recordToText record = T.intercalate "," $ map snd $ HM.toList record
 
+stripQuotes :: Text -> Text
+stripQuotes = T.strip . T.dropAround (== '"')
+
 applyCondition :: Condition -> CSVRecord -> Bool
 applyCondition (Condition field op value) record =
     (T.null field && T.null op && T.null value) || (case HM.lookup field record of
         Nothing -> error $ "field '" ++ T.unpack field ++ "' doesn't exist in the record"
-        Just val -> case op of
-            "="  -> val == value
-            ">"  -> maybe False (> readT value) (readTMaybe val)
-            "<"  -> maybe False (< readT value) (readTMaybe val)
-            ">=" -> maybe False (>= readT value) (readTMaybe val)
-            "<=" -> maybe False (<= readT value) (readTMaybe val)
-            _    -> False)
+        Just val -> 
+            let strippedVal = stripQuotes val
+                strippedValue = stripQuotes value
+            in case op of
+                "="  -> strippedVal == strippedValue
+                ">"  -> maybe False (> readT strippedValue) (readTMaybe strippedVal)
+                "<"  -> maybe False (< readT strippedValue) (readTMaybe strippedVal)
+                ">=" -> maybe False (>= readT strippedValue) (readTMaybe strippedVal)
+                "<=" -> maybe False (<= readT strippedValue) (readTMaybe strippedVal)
+                _    -> False)
+
   where
     readT :: Text -> Int
     readT = read . T.unpack
