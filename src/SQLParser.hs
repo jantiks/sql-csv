@@ -8,12 +8,9 @@ module SQLParser (
 
 import Text.Parsec
 import Text.Parsec.String (Parser)
-import Text.Parsec.Char (char, string)
-import Text.Parsec.Combinator (many1, optionMaybe, sepBy1, between)
-import Control.Monad (void)
 import Data.Char
 import System.FilePath (takeExtension)
-import Debug.Trace (trace, traceShowId)
+import Debug.Trace (trace)
 
 data SQLQuery
   = SelectQuery [String] String (Maybe Condition)
@@ -74,12 +71,8 @@ parseUpdateField = do
 parseInsert :: Parser SQLQuery
 parseInsert = do
   table <- str "INSERT INTO" *> parseTable <* spaces
-  spaces
-  fields <- between (char '(') (char ')') (sepBy1 parseField (char ','))
-  trace ("Parsed fields: " ++ show fields) $ return ()
-  spaces
+  fields <- spaces *> between (char '(') (char ')') (sepBy1 parseField (char ',')) <* spaces
   values <- str "VALUES" *> between (char '(') (char ')') (sepBy1 parseValue (char ','))
-  trace ("Parsed values: " ++ show values) $ return ()
   return $ InsertQuery table fields values
 
 parseDelete :: Parser SQLQuery
@@ -102,12 +95,8 @@ parseTable = do
 
 parseWhere :: Parser Condition
 parseWhere = option (Condition "" "" "") $ do
-  caseInsensitiveString "WHERE"
-  void spaces
-  f <- many1 alphaNum
-  spaces
-  op <- parseOperator
-  spaces
+  f <- str "WHERE" *> many1 alphaNum <* spaces
+  op <- parseOperator <* spaces
   v <- many1 (noneOf " \t\n")
   return $ Condition f op v
 
@@ -117,17 +106,11 @@ parseOperator = try (string ">=")
             <|> string "="
             <|> string ">"
             <|> string "<"
- 
+
 parseField :: Parser String
 parseField = do
-  spaces
-  f <- many1 (noneOf ",)")
-  spaces
-  return f
+  spaces *> many1 (noneOf ",)") <* spaces
 
 parseValue :: Parser String
 parseValue = do
-  spaces
-  v <- many1 (noneOf ",)")
-  spaces
-  return v
+  spaces *> many1 (noneOf ",)") <* spaces

@@ -8,7 +8,6 @@ import Text.Parsec (parse)
 import System.Environment (getArgs)
 import Data.List (intercalate)
 import qualified Data.Text as T
-import Debug.Trace (trace)
 import System.Exit (exitFailure)
 
 main :: IO ()

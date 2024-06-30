@@ -19,7 +19,6 @@ import Data.Vector (Vector)
 import qualified Data.HashMap.Strict as HM
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import qualified Data.Text.IO as TIO
 import Text.Read (readMaybe)
 
