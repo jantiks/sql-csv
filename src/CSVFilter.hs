@@ -40,14 +40,20 @@ filterCSV fileName condition = do
 recordToText :: CSVRecord -> Text
 recordToText record = T.intercalate "," $ map snd $ HM.toList record
 
+conditionIsEmpty :: Condition -> Bool
+conditionIsEmpty (Condition field op value) = T.null field && T.null op && T.null value
+
 applyCondition :: Condition -> CSVRecord -> Bool
 applyCondition (Condition field op value) record =
-    case HM.lookup field record of
+    if T.null field && T.null op && T.null value then True
+    else case HM.lookup field record of
         Nothing -> False
         Just val -> case op of
             "="  -> val == value
             ">"  -> maybe False (> (readT value)) (readTMaybe val)
             "<"  -> maybe False (< (readT value)) (readTMaybe val)
+            ">=" -> maybe False (>= (readT value)) (readTMaybe val)
+            "<=" -> maybe False (<= (readT value)) (readTMaybe val)
             _    -> False
   where
     readT :: Text -> Int
@@ -55,9 +61,9 @@ applyCondition (Condition field op value) record =
 
     readTMaybe :: Text -> Maybe Int
     readTMaybe = readMaybe . T.unpack
-
 runSQLQuery :: FilePath -> [Text] -> Condition -> IO ()
 runSQLQuery fileName fields condition = do
+    putStrLn $ "Running SQL Query with Condition: " ++ show condition
     records <- filterCSV fileName (applyCondition condition)
     let selectFields rec = if null fields then rec
                            else HM.filterWithKey (\k _ -> k `elem` fields) rec

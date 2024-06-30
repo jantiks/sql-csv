@@ -117,7 +117,7 @@ parseTable = do
       else fail "Table name must end with .csv"
 
 parseWhere :: Parser Condition
-parseWhere = do
+parseWhere = option (Condition "" "" "") $ do
   void $ caseInsensitiveString "WHERE"
   void spaces
   f <- many1 alphaNum
@@ -133,7 +133,7 @@ parseOperator = try (string ">=")
             <|> string "="
             <|> string ">"
             <|> string "<"
-
+ 
 parseField :: Parser String
 parseField = do
   spaces
