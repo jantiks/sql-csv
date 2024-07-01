@@ -1,10 +1,11 @@
-name,age,city
-"Mark",35,Los Angeles
-Mark,17,New York
-Tigran,23,Abovyan
-Ibrahim,25,Berzeit
-Aibat,24,Aktobe
-Zdenek,43,Seattle
-Frank,28,Seattle
-Armen,50,Seattle
-Armen,50,Seattle
+name,age,city,height
+Mark,35,Los Angeles,180
+Mark,17,New York,200
+Tigran,23,Abovyan,150
+Ibrahim,25,Berzeit,170
+Aibat,24,Aktobe,158
+Zdenek,43,Seattle,154
+Frank,28,Seattle,179
+Armen,50,Seattle,145
+Armen,50,Seattle,176
+"""Armen""",50,Seattle,150

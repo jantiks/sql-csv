@@ -8,7 +8,6 @@ module CSVFilter (
     runDeleteQuery,
     runInsertQuery,
     runUpdateQuery,
-    Condition(..)
 ) where
 
 import Data.Csv
@@ -21,13 +20,13 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Text.Read (readMaybe)
+import Debug.Trace (trace)
 
+import qualified SQLParser as SP
 
 
 type CSVRecord = HM.HashMap Text Text
 
-data Condition = Condition Text Text Text
-  deriving (Show)
 
 filterCSV :: FilePath -> (CSVRecord -> Bool) -> IO (Vector CSVRecord)
 filterCSV fileName condition = do
@@ -42,30 +41,62 @@ recordToText record = T.intercalate "," $ map snd $ HM.toList record
 stripQuotes :: Text -> Text
 stripQuotes = T.strip . T.dropAround (== '"')
 
-applyCondition :: Condition -> CSVRecord -> Bool
-applyCondition (Condition field op value) record =
-    (T.null field && T.null op && T.null value) || (case HM.lookup field record of
-        Nothing -> error $ "field '" ++ T.unpack field ++ "' doesn't exist in the record"
-        Just val -> 
-            let strippedVal = stripQuotes val
-                strippedValue = stripQuotes value
-            in case op of
-                "="  -> strippedVal == strippedValue
-                ">"  -> maybe False (> readT strippedValue) (readTMaybe strippedVal)
-                "<"  -> maybe False (< readT strippedValue) (readTMaybe strippedVal)
-                ">=" -> maybe False (>= readT strippedValue) (readTMaybe strippedVal)
-                "<=" -> maybe False (<= readT strippedValue) (readTMaybe strippedVal)
-                _    -> False)
-
+applyCondition :: SP.Condition -> CSVRecord -> Bool
+applyCondition (SP.Condition expr) record =
+    evalExpr expr
   where
-    readT :: Text -> Int
-    readT = read . T.unpack
+    evalExpr :: SP.Expr -> Bool
+    evalExpr (SP.Field field) = error $ "Field '" ++ field ++ "' cannot be evaluated directly"
+    evalExpr (SP.IntConst _) = error "Integer constant cannot be evaluated directly"
+    evalExpr (SP.StrConst _) = error "String constant cannot be evaluated directly"
+    evalExpr (SP.BinOp op left right) =
+        case op of
+            "="  -> evalComparison (==)
+            ">"  -> evalComparison (>)
+            "<"  -> evalComparison (<)
+            ">=" -> evalComparison (>=)
+            "<=" -> evalComparison (<=)
+            "!=" -> evalComparison (/=)
+            "and" -> evalLogical (&&)
+            "or"  -> evalLogical (||)
+            _     -> error $ "unsupported operator: " ++ op
+      where
+        evalComparison cmp =
+            case (evalArithmetic left, evalArithmetic right) of
+                (Just l, Just r) -> l `cmp` r
+                _ -> False
+        
+        evalLogical lg =
+            case (evalExpr left, evalExpr right) of
+                (True, True) -> lg True True
+                (True, False) -> lg True False
+                (False, True) -> lg False True
+                (False, False) -> lg False False
+        
+        evalArithmetic (SP.BinOp op l r) =
+            case (evalArithmetic l, evalArithmetic r) of
+                (Just lv, Just rv) -> case op of
+                    "+" -> Just (lv + rv)
+                    "-" -> Just (lv - rv)
+                    "*" -> Just (lv * rv)
+                    "/" -> if rv /= 0 then Just (lv / rv) else Nothing
+                    _   -> Nothing
+                _ -> Nothing
+        evalArithmetic (SP.Field field) = HM.lookup (T.pack field) record >>= readTMaybe . T.unpack
+        evalArithmetic (SP.IntConst i) = Just (fromIntegral i)
+        evalArithmetic (SP.StrConst s) = readTMaybe s
+        evalArithmetic _ = Nothing
 
-    readTMaybe :: Text -> Maybe Int
-    readTMaybe = readMaybe . T.unpack
+    evalExpr (SP.UnOp op expr) =
+        case op of
+            "not" -> not (evalExpr expr)
+            _     -> error $ "unsupported operator: " ++ op
+
+    readTMaybe :: Read a => String -> Maybe a
+    readTMaybe = readMaybe
 
 
-runSQLQuery :: FilePath -> [Text] -> Condition -> IO ()
+runSQLQuery :: FilePath -> [Text] -> SP.Condition -> IO ()
 runSQLQuery fileName fields condition = do
     putStrLn $ "runSQLQuery with cond: " ++ show condition
     records <- filterCSV fileName (applyCondition condition)
@@ -74,7 +105,7 @@ runSQLQuery fileName fields condition = do
     V.mapM_ (TIO.putStrLn . recordToText . selectFields) records
 
 -- Function to run DELETE query and write updated records to file
-runDeleteQuery :: FilePath -> Condition -> IO ()
+runDeleteQuery :: FilePath -> SP.Condition -> IO ()
 runDeleteQuery fileName condition = do
     csvData <- BL.readFile fileName
     case decodeByName csvData of
@@ -103,7 +134,7 @@ runInsertQuery fileName fields values = do
             BL8.writeFile fileName updatedData
             putStrLn $ "Records inserted into " ++ fileName
 
-runUpdateQuery :: FilePath -> [(Text, Text)] -> Condition -> IO ()
+runUpdateQuery :: FilePath -> [(Text, Text)] -> SP.Condition -> IO ()
 runUpdateQuery fileName updates condition = do
     csvData <- BL.readFile fileName
     case decodeByName csvData of

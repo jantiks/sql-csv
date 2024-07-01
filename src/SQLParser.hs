@@ -3,6 +3,7 @@
 module SQLParser (
     SQLQuery(..),
     Condition(..),
+    Expr(..),
     parseSQL
 ) where
 
@@ -11,6 +12,12 @@ import Text.Parsec.String (Parser)
 import Data.Char
 import System.FilePath (takeExtension)
 import Debug.Trace (trace)
+import Text.Parsec.Expr
+import qualified Text.Parsec.Token as Tok
+import Text.Parsec.Language (emptyDef)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
+import qualified Text.Read as TR
 
 data SQLQuery
   = SelectQuery [String] String (Maybe Condition)
@@ -19,11 +26,15 @@ data SQLQuery
   | DeleteQuery String (Maybe Condition)
   deriving (Show)
 
-data Condition = Condition
-  { field    :: String
-  , operator :: String
-  , value    :: String
-  } deriving (Show)
+data Condition = Condition Expr deriving (Show)
+
+data Expr
+  = Field String
+  | IntConst Int
+  | StrConst String
+  | BinOp String Expr Expr
+  | UnOp String Expr
+  deriving (Show, Eq)
 
 caseInsensitiveString :: String -> Parser String
 caseInsensitiveString = try . mapM (\c -> char (toLower c) <|> char (toUpper c))
@@ -41,7 +52,7 @@ parseSQL = do
 str :: String -> Parser String
 str s = caseInsensitiveString s <* spaces
 
--- | Parse SELECT.
+-- parse SQL commands.
 parseSelect :: Parser SQLQuery
 parseSelect = do
   fields <- str "SELECT" *> parseSelectFields <* spaces
@@ -97,24 +108,41 @@ stripQuotes :: String -> String
 stripQuotes = reverse . dropWhile (== '"') . reverse . dropWhile (== '"')
 
 parseWhere :: Parser Condition
-parseWhere = option (Condition "" "" "") $ do
-  f <- str "WHERE" *> many1 alphaNum <* spaces
-  op <- parseOperator <* spaces
-  v <- many1 (noneOf " \t\n")
-  return $ Condition f op (stripQuotes v)
+parseWhere = Condition <$> (str "WHERE" *> parseExpr)
 
+lexer = Tok.makeTokenParser emptyDef
 
-parseOperator :: Parser String
-parseOperator = try (string ">=")
-            <|> try (string "<=")
-            <|> string "="
-            <|> string ">"
-            <|> string "<"
+integer = Tok.integer lexer
+stringLiteral = Tok.stringLiteral lexer
+identifier = Tok.identifier lexer
+reservedOp = Tok.reservedOp lexer
+parens = Tok.parens lexer
+
+-- expression parser
+parseExpr :: Parser Expr
+parseExpr = buildExpressionParser table term
+  where
+    table = [ [Prefix (reservedOp "not" >> return (UnOp "not"))]
+            , [Infix (reservedOp "*" >> return (BinOp "*")) AssocLeft
+              , Infix (reservedOp "/" >> return (BinOp "/")) AssocLeft]
+            , [Infix (reservedOp "+" >> return (BinOp "+")) AssocLeft
+              , Infix (reservedOp "-" >> return (BinOp "-")) AssocLeft]
+            , [Infix (reservedOp ">" >> return (BinOp ">")) AssocNone
+              , Infix (reservedOp ">=" >> return (BinOp ">=")) AssocNone
+              , Infix (reservedOp "<" >> return (BinOp "<")) AssocNone
+              , Infix (reservedOp "<=" >> return (BinOp "<=")) AssocNone
+              , Infix (reservedOp "=" >> return (BinOp "=")) AssocNone
+              , Infix (reservedOp "!=" >> return (BinOp "!=")) AssocNone]
+            , [Infix (reservedOp "and" >> return (BinOp "and")) AssocRight]
+            , [Infix (reservedOp "or" >> return (BinOp "or")) AssocRight]
+            ]
+    term = parens parseExpr
+      <|> fmap (Field . trace "Identifier" id) identifier
+      <|> fmap (IntConst . fromInteger) integer
+      <|> fmap StrConst stringLiteral
 
 parseField :: Parser String
-parseField = do
-  spaces *> many1 (noneOf ",)") <* spaces
+parseField = spaces *> many1 (noneOf ",)") <* spaces
 
 parseValue :: Parser String
-parseValue = do
-  spaces *> many1 (noneOf ",)") <* spaces
+parseValue = spaces *> many1 (noneOf ",)") <* spaces

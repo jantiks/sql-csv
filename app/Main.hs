@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import SQLParser (SQLQuery(..), Condition(..), parseSQL)
+import SQLParser (SQLQuery(..), parseSQL)
 import qualified CSVFilter as CF
 import Text.Parsec (parse)
 import System.Environment (getArgs)
@@ -26,25 +26,24 @@ executeSQL :: SQLQuery -> IO ()
 executeSQL (SelectQuery fields table whereClause) = do
     let fieldNames = if fields == ["*"] then [] else map T.pack fields
     case whereClause of
-        Nothing -> CF.runSQLQuery table fieldNames (CF.Condition "" "=" "")
-        Just (Condition f op v) ->
-            CF.runSQLQuery table fieldNames (CF.Condition (T.pack f) (T.pack op) (T.pack v))
+        Just cond ->
+            CF.runSQLQuery table fieldNames cond
     -- print records
 
 
 executeSQL (DeleteQuery table whereClause) = do
     case whereClause of
         Nothing -> putStrLn "DELETE Query requires a WHERE clause"
-        Just (Condition f op v) -> 
-            CF.runDeleteQuery table (CF.Condition (T.pack f) (T.pack op) (T.pack v))
+        Just cond -> 
+            CF.runDeleteQuery table cond
 
 executeSQL (UpdateQuery table updates whereClause) = do
     case whereClause of
         Nothing -> putStrLn "UPDATE Query requires a WHERE clause"
-        Just (Condition f op v) -> 
+        Just cond -> 
             CF.runUpdateQuery table 
             (map (\(fld, val) -> (T.pack fld, T.pack val)) updates) 
-            (CF.Condition (T.pack f) (T.pack op) (T.pack v))
+            (cond)
         
 executeSQL (InsertQuery table fields values) = do
     putStrLn $ "asd fileName: " ++ table
