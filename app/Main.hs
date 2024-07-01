@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import SQLParser (SQLQuery(..), parseSQL)
+import SQLParser (SQLQuery(..), parseSQL, Condition(..), Expr(Field))
 import qualified CSVFilter as CF
 import Text.Parsec (parse)
 import System.Environment (getArgs)
@@ -28,6 +28,8 @@ executeSQL (SelectQuery fields table whereClause) = do
     case whereClause of
         Just cond ->
             CF.runSQLQuery table fieldNames cond
+        Nothing ->
+            CF.runSQLQuery table fieldNames (Condition $ Field "")
     -- print records
 
 

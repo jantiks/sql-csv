@@ -42,9 +42,10 @@ applyCondition :: SP.Condition -> CSVRecord -> Bool
 applyCondition (SP.Condition expr) record = evalExpr expr
   where
     evalExpr :: SP.Expr -> Bool
-    evalExpr (SP.Field _) = error "Something wrong with parser"
-    evalExpr (SP.IntConst _) = error "Something wrong with parser"
-    evalExpr (SP.StrConst _) = error "Something wrong with parser"
+    evalExpr (SP.Field "") = True  -- The case with no `where` clause for SELECT command
+    evalExpr (SP.Field field) = error ("unexpected field in condition: " ++ field)
+    evalExpr (SP.IntConst _) = error "unexpected integer constant in condition"
+    evalExpr (SP.StrConst _) = error "unexpected string constant in condition"
     evalExpr (SP.BinOp op left right) =
         case op of
             "="  -> evalEquality left right
@@ -55,20 +56,19 @@ applyCondition (SP.Condition expr) record = evalExpr expr
             "<=" -> evalComparison (<=) left right
             "and" -> evalLogical (&&) left right
             "or"  -> evalLogical (||) left right
-            _     -> error $ "Unsupported binary operator: " ++ op
+            _     -> error $ "unsupported operator: " ++ op
 
     evalExpr (SP.UnOp op expr) =
         case op of
             "not" -> not (evalExpr expr)
-            _     -> error $ "Unsupported unary operator: " ++ op
+            _     -> error $ "Unsupported operator: " ++ op
 
     evalEquality :: SP.Expr -> SP.Expr -> Bool
     evalEquality left right =
-        trace ("Evaluating equality: " ++ show left ++ " == " ++ show right) $
         case (evalNumeric left, evalNumeric right) of
-            (Just l, Just r) -> trace ("Numeric comparison: " ++ show l ++ " == " ++ show r) $ l == r
+            (Just l, Just r) -> l == r
             _ -> case (evalText left, evalText right) of
-                    (Just l, Just r) -> trace ("Text comparison: " ++ show l ++ " == " ++ show r) $ l == r
+                    (Just l, Just r) -> l == r
                     _ -> trace "Comparison failed" False
 
     evalComparison :: (Double -> Double -> Bool) -> SP.Expr -> SP.Expr -> Bool
@@ -81,7 +81,10 @@ applyCondition (SP.Condition expr) record = evalExpr expr
     evalLogical lg left right = lg (evalExpr left) (evalExpr right)
 
     evalText :: SP.Expr -> Maybe T.Text
-    evalText (SP.Field field) = HM.lookup (T.pack field) record
+    evalText (SP.Field field) = 
+        case HM.lookup (T.pack field) record of
+            Nothing -> error $ "field '" ++ field ++ "' doesn't exist in the record"
+            Just val -> Just val
     evalText (SP.StrConst s) = Just (T.pack s)
     evalText (SP.IntConst i) = Just (T.pack $ show i)
     evalText _ = Nothing
@@ -96,7 +99,10 @@ applyCondition (SP.Condition expr) record = evalExpr expr
                 "/" -> if rv /= 0 then Just (lv / rv) else Nothing
                 _   -> Nothing
             _ -> Nothing
-    evalNumeric (SP.Field field) = HM.lookup (T.pack field) record >>= readTMaybe . T.unpack
+    evalNumeric (SP.Field field) = 
+        case HM.lookup (T.pack field) record of
+            Nothing -> error $ "Field '" ++ field ++ "' doesn't exist in the record"
+            Just val -> readTMaybe (T.unpack val)
     evalNumeric (SP.IntConst i) = Just (fromIntegral i)
     evalNumeric _ = Nothing
 
@@ -105,7 +111,6 @@ applyCondition (SP.Condition expr) record = evalExpr expr
 
 runSQLQuery :: FilePath -> [Text] -> SP.Condition -> IO ()
 runSQLQuery fileName fields condition = do
-    putStrLn $ "runSQLQuery with cond: " ++ show condition
     records <- filterCSV fileName (applyCondition condition)
     let selectFields rec = if null fields then rec
                            else HM.filterWithKey (\k _ -> k `elem` fields) rec
@@ -121,7 +126,7 @@ runDeleteQuery fileName condition = do
             let remainingRecords = V.filter (not . applyCondition condition) v
             let updatedData = encodeByName header (V.toList remainingRecords)
             BL8.writeFile fileName updatedData
-            putStrLn $ "Records deleted"
+            putStrLn "Records deleted"
 
 runInsertQuery :: FilePath -> [Text] -> [Text] -> IO ()
 runInsertQuery fileName fields values = do
@@ -139,7 +144,7 @@ runInsertQuery fileName fields values = do
             putStrLn $ "updatedRecords: " ++ show updatedRecords
             let updatedData = encodeByName header (V.toList updatedRecords)
             BL8.writeFile fileName updatedData
-            putStrLn $ "Records inserted into " ++ fileName
+            putStrLn ("Records inserted into " ++ fileName)
 
 runUpdateQuery :: FilePath -> [(Text, Text)] -> SP.Condition -> IO ()
 runUpdateQuery fileName updates condition = do
