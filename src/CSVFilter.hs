@@ -42,8 +42,7 @@ stripQuotes :: Text -> Text
 stripQuotes = T.strip . T.dropAround (== '"')
 
 applyCondition :: SP.Condition -> CSVRecord -> Bool
-applyCondition (SP.Condition expr) record =
-    evalExpr expr
+applyCondition (SP.Condition expr) record = evalExpr expr
   where
     evalExpr :: SP.Expr -> Bool
     evalExpr (SP.Field field) = error $ "Field '" ++ field ++ "' cannot be evaluated directly"
@@ -51,51 +50,61 @@ applyCondition (SP.Condition expr) record =
     evalExpr (SP.StrConst _) = error "String constant cannot be evaluated directly"
     evalExpr (SP.BinOp op left right) =
         case op of
-            "="  -> evalComparison (==)
-            ">"  -> evalComparison (>)
-            "<"  -> evalComparison (<)
-            ">=" -> evalComparison (>=)
-            "<=" -> evalComparison (<=)
-            "!=" -> evalComparison (/=)
-            "and" -> evalLogical (&&)
-            "or"  -> evalLogical (||)
-            _     -> error $ "unsupported operator: " ++ op
-      where
-        evalComparison cmp =
-            case (evalArithmetic left, evalArithmetic right) of
-                (Just l, Just r) -> l `cmp` r
-                _ -> False
-        
-        evalLogical lg =
-            case (evalExpr left, evalExpr right) of
-                (True, True) -> lg True True
-                (True, False) -> lg True False
-                (False, True) -> lg False True
-                (False, False) -> lg False False
-        
-        evalArithmetic (SP.BinOp op l r) =
-            case (evalArithmetic l, evalArithmetic r) of
-                (Just lv, Just rv) -> case op of
-                    "+" -> Just (lv + rv)
-                    "-" -> Just (lv - rv)
-                    "*" -> Just (lv * rv)
-                    "/" -> if rv /= 0 then Just (lv / rv) else Nothing
-                    _   -> Nothing
-                _ -> Nothing
-        evalArithmetic (SP.Field field) = HM.lookup (T.pack field) record >>= readTMaybe . T.unpack
-        evalArithmetic (SP.IntConst i) = Just (fromIntegral i)
-        evalArithmetic (SP.StrConst s) = readTMaybe s
-        evalArithmetic _ = Nothing
+            "="  -> evalEquality left right
+            "!=" -> not (evalEquality left right)
+            ">"  -> evalComparison (>) left right
+            "<"  -> evalComparison (<) left right
+            ">=" -> evalComparison (>=) left right
+            "<=" -> evalComparison (<=) left right
+            "and" -> evalLogical (&&) left right
+            "or"  -> evalLogical (||) left right
+            _     -> error $ "Unsupported binary operator: " ++ op
 
     evalExpr (SP.UnOp op expr) =
         case op of
             "not" -> not (evalExpr expr)
-            _     -> error $ "unsupported operator: " ++ op
+            _     -> error $ "Unsupported unary operator: " ++ op
+
+    evalEquality :: SP.Expr -> SP.Expr -> Bool
+    evalEquality left right =
+        trace ("Evaluating equality: " ++ show left ++ " == " ++ show right) $
+        case (evalNumeric left, evalNumeric right) of
+            (Just l, Just r) -> trace ("Numeric comparison: " ++ show l ++ " == " ++ show r) $ l == r
+            _ -> case (evalText left, evalText right) of
+                    (Just l, Just r) -> trace ("Text comparison: " ++ show l ++ " == " ++ show r) $ l == r
+                    _ -> trace "Comparison failed" False
+
+    evalComparison :: (Double -> Double -> Bool) -> SP.Expr -> SP.Expr -> Bool
+    evalComparison cmp left right =
+        case (evalNumeric left, evalNumeric right) of
+            (Just l, Just r) -> l `cmp` r
+            _ -> False
+
+    evalLogical :: (Bool -> Bool -> Bool) -> SP.Expr -> SP.Expr -> Bool
+    evalLogical lg left right = lg (evalExpr left) (evalExpr right)
+
+    evalText :: SP.Expr -> Maybe T.Text
+    evalText (SP.Field field) = HM.lookup (T.pack field) record
+    evalText (SP.StrConst s) = Just (T.pack s)
+    evalText (SP.IntConst i) = Just (T.pack $ show i)
+    evalText _ = Nothing
+
+    evalNumeric :: SP.Expr -> Maybe Double
+    evalNumeric (SP.BinOp op l r) =
+        case (evalNumeric l, evalNumeric r) of
+            (Just lv, Just rv) -> case op of
+                "+" -> Just (lv + rv)
+                "-" -> Just (lv - rv)
+                "*" -> Just (lv * rv)
+                "/" -> if rv /= 0 then Just (lv / rv) else Nothing
+                _   -> Nothing
+            _ -> Nothing
+    evalNumeric (SP.Field field) = HM.lookup (T.pack field) record >>= readTMaybe . T.unpack
+    evalNumeric (SP.IntConst i) = Just (fromIntegral i)
+    evalNumeric _ = Nothing
 
     readTMaybe :: Read a => String -> Maybe a
     readTMaybe = readMaybe
-
-
 runSQLQuery :: FilePath -> [Text] -> SP.Condition -> IO ()
 runSQLQuery fileName fields condition = do
     putStrLn $ "runSQLQuery with cond: " ++ show condition

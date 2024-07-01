@@ -15,9 +15,6 @@ import Debug.Trace (trace)
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as Tok
 import Text.Parsec.Language (emptyDef)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as T
-import qualified Text.Read as TR
 
 data SQLQuery
   = SelectQuery [String] String (Maybe Condition)
@@ -127,19 +124,33 @@ parseExpr = buildExpressionParser table term
               , Infix (reservedOp "/" >> return (BinOp "/")) AssocLeft]
             , [Infix (reservedOp "+" >> return (BinOp "+")) AssocLeft
               , Infix (reservedOp "-" >> return (BinOp "-")) AssocLeft]
-            , [Infix (reservedOp ">" >> return (BinOp ">")) AssocNone
-              , Infix (reservedOp ">=" >> return (BinOp ">=")) AssocNone
-              , Infix (reservedOp "<" >> return (BinOp "<")) AssocNone
-              , Infix (reservedOp "<=" >> return (BinOp "<=")) AssocNone
-              , Infix (reservedOp "=" >> return (BinOp "=")) AssocNone
-              , Infix (reservedOp "!=" >> return (BinOp "!=")) AssocNone]
+            , [Infix (reservedOp ">" >> return (binOpWrapper ">")) AssocNone
+              , Infix (reservedOp ">=" >> return (binOpWrapper ">=")) AssocNone
+              , Infix (reservedOp "<" >> return (binOpWrapper "<")) AssocNone
+              , Infix (reservedOp "<=" >> return (binOpWrapper "<=")) AssocNone
+              , Infix (reservedOp "=" >> return (binOpWrapper "=")) AssocNone
+              , Infix (reservedOp "!=" >> return (binOpWrapper "!=")) AssocNone]
             , [Infix (reservedOp "and" >> return (BinOp "and")) AssocRight]
             , [Infix (reservedOp "or" >> return (BinOp "or")) AssocRight]
             ]
     term = parens parseExpr
-      <|> fmap (Field . trace "Identifier" id) identifier
       <|> fmap (IntConst . fromInteger) integer
       <|> fmap StrConst stringLiteral
+      <|> fmap (Field . trace "Identifier" id) identifier
+
+   -- Used for handling quoted and unqoted Strings
+    binOpWrapper :: String -> Expr -> Expr -> Expr
+    binOpWrapper op left right = BinOp op left (convertToStrConstIfNeeded right)
+
+    convertToStrConstIfNeeded :: Expr -> Expr
+    convertToStrConstIfNeeded (Field str) = StrConst str
+    convertToStrConstIfNeeded expr = expr
+
+-- parseValueAfterOp :: Parser Expr
+-- parseValueAfterOp expr = 
+--     case expr of
+--       Field str -> if all isAlphaNum str then StrConst str else expr
+--       _ -> expr
 
 parseField :: Parser String
 parseField = spaces *> many1 (noneOf ",)") <* spaces
