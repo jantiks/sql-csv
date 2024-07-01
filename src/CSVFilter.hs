@@ -38,16 +38,13 @@ filterCSV fileName condition = do
 recordToText :: CSVRecord -> Text
 recordToText record = T.intercalate "," $ map snd $ HM.toList record
 
-stripQuotes :: Text -> Text
-stripQuotes = T.strip . T.dropAround (== '"')
-
 applyCondition :: SP.Condition -> CSVRecord -> Bool
 applyCondition (SP.Condition expr) record = evalExpr expr
   where
     evalExpr :: SP.Expr -> Bool
-    evalExpr (SP.Field field) = error $ "Field '" ++ field ++ "' cannot be evaluated directly"
-    evalExpr (SP.IntConst _) = error "Integer constant cannot be evaluated directly"
-    evalExpr (SP.StrConst _) = error "String constant cannot be evaluated directly"
+    evalExpr (SP.Field _) = error "Something wrong with parser"
+    evalExpr (SP.IntConst _) = error "Something wrong with parser"
+    evalExpr (SP.StrConst _) = error "Something wrong with parser"
     evalExpr (SP.BinOp op left right) =
         case op of
             "="  -> evalEquality left right
@@ -105,6 +102,7 @@ applyCondition (SP.Condition expr) record = evalExpr expr
 
     readTMaybe :: Read a => String -> Maybe a
     readTMaybe = readMaybe
+
 runSQLQuery :: FilePath -> [Text] -> SP.Condition -> IO ()
 runSQLQuery fileName fields condition = do
     putStrLn $ "runSQLQuery with cond: " ++ show condition
@@ -113,7 +111,7 @@ runSQLQuery fileName fields condition = do
                            else HM.filterWithKey (\k _ -> k `elem` fields) rec
     V.mapM_ (TIO.putStrLn . recordToText . selectFields) records
 
--- Function to run DELETE query and write updated records to file
+
 runDeleteQuery :: FilePath -> SP.Condition -> IO ()
 runDeleteQuery fileName condition = do
     csvData <- BL.readFile fileName

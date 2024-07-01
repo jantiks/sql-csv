@@ -119,7 +119,8 @@ parens = Tok.parens lexer
 parseExpr :: Parser Expr
 parseExpr = buildExpressionParser table term
   where
-    table = [ [Prefix (reservedOp "not" >> return (UnOp "not"))]
+    table = [ [Prefix (reservedOp "not" >> return (UnOp "not")),
+               Prefix (reservedOp "NOT" >> return (UnOp "not"))]
             , [Infix (reservedOp "*" >> return (BinOp "*")) AssocLeft
               , Infix (reservedOp "/" >> return (BinOp "/")) AssocLeft]
             , [Infix (reservedOp "+" >> return (BinOp "+")) AssocLeft
@@ -130,8 +131,10 @@ parseExpr = buildExpressionParser table term
               , Infix (reservedOp "<=" >> return (binOpWrapper "<=")) AssocNone
               , Infix (reservedOp "=" >> return (binOpWrapper "=")) AssocNone
               , Infix (reservedOp "!=" >> return (binOpWrapper "!=")) AssocNone]
-            , [Infix (reservedOp "and" >> return (BinOp "and")) AssocRight]
-            , [Infix (reservedOp "or" >> return (BinOp "or")) AssocRight]
+            , [Infix (reservedOp "and" >> return (BinOp "and")) AssocRight,
+               Infix (reservedOp "AND" >> return (BinOp "and")) AssocRight]
+            , [Infix (reservedOp "or" >> return (BinOp "or")) AssocRight,
+               Infix (reservedOp "OR" >> return (BinOp "or")) AssocRight]
             ]
     term = parens parseExpr
       <|> fmap (IntConst . fromInteger) integer
@@ -145,12 +148,6 @@ parseExpr = buildExpressionParser table term
     convertToStrConstIfNeeded :: Expr -> Expr
     convertToStrConstIfNeeded (Field str) = StrConst str
     convertToStrConstIfNeeded expr = expr
-
--- parseValueAfterOp :: Parser Expr
--- parseValueAfterOp expr = 
---     case expr of
---       Field str -> if all isAlphaNum str then StrConst str else expr
---       _ -> expr
 
 parseField :: Parser String
 parseField = spaces *> many1 (noneOf ",)") <* spaces
