@@ -39,6 +39,7 @@ filterCSV fileName condition = do
 recordToText :: [Text] -> CSVRecord -> Text
 recordToText header record = T.intercalate "," $ map (\field -> HM.lookupDefault "" field record) header
 
+
 applyCondition :: SP.Condition -> CSVRecord -> Bool
 applyCondition (SP.Condition expr) record = evalExpr expr
   where
@@ -72,11 +73,14 @@ applyCondition (SP.Condition expr) record = evalExpr expr
                     (Just l, Just r) -> l == r
                     _ -> trace "Comparison failed" False
 
-    evalComparison :: (Double -> Double -> Bool) -> SP.Expr -> SP.Expr -> Bool
+
+    evalComparison :: (T.Text -> T.Text -> Bool) -> SP.Expr -> SP.Expr -> Bool
     evalComparison cmp left right =
         case (evalNumeric left, evalNumeric right) of
-            (Just l, Just r) -> l `cmp` r
-            _ -> False
+            (Just l, Just r) -> cmp (T.pack $ show l) (T.pack $ show r)
+            _ -> case (evalText left, evalText right) of
+                    (Just l, Just r) -> cmp l r
+                    _ -> False
 
     evalLogical :: (Bool -> Bool -> Bool) -> SP.Expr -> SP.Expr -> Bool
     evalLogical lg left right = lg (evalExpr left) (evalExpr right)
@@ -109,7 +113,7 @@ applyCondition (SP.Condition expr) record = evalExpr expr
 
     readTMaybe :: Read a => String -> Maybe a
     readTMaybe = readMaybe
-
+    
 runSQLQuery :: FilePath -> [Text] -> SP.Condition -> IO ()
 runSQLQuery fileName fields condition = do
     csvData <- BL.readFile fileName
