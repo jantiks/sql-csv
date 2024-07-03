@@ -23,6 +23,7 @@ import Text.Read (readMaybe)
 import Debug.Trace (trace)
 
 import qualified SQLParser as SP
+import qualified Data.Text.Encoding as T
 
 
 type CSVRecord = HM.HashMap Text Text
@@ -35,8 +36,8 @@ filterCSV fileName condition = do
         Left err -> error err
         Right (_, v) -> return $ V.filter condition v
 
-recordToText :: CSVRecord -> Text
-recordToText record = T.intercalate "," $ map snd $ HM.toList record
+recordToText :: [Text] -> CSVRecord -> Text
+recordToText header record = T.intercalate "," $ map (\field -> HM.lookupDefault "" field record) header
 
 applyCondition :: SP.Condition -> CSVRecord -> Bool
 applyCondition (SP.Condition expr) record = evalExpr expr
@@ -111,10 +112,18 @@ applyCondition (SP.Condition expr) record = evalExpr expr
 
 runSQLQuery :: FilePath -> [Text] -> SP.Condition -> IO ()
 runSQLQuery fileName fields condition = do
-    records <- filterCSV fileName (applyCondition condition)
-    let selectFields rec = if null fields then rec
-                           else HM.filterWithKey (\k _ -> k `elem` fields) rec
-    V.mapM_ (TIO.putStrLn . recordToText . selectFields) records
+    csvData <- BL.readFile fileName
+    case decodeByName csvData of
+        Left err -> error err
+        Right (header, v) -> do
+            let headerText = V.map T.decodeUtf8 header
+            let records = V.filter (applyCondition condition) v
+            let selectedHeader = if null fields
+                                 then V.toList headerText
+                                 else filter (`elem` fields) (V.toList headerText)
+            let selectFields rec = if null fields then rec
+                                   else HM.filterWithKey (\k _ -> k `elem` fields) rec
+            V.mapM_ (TIO.putStrLn . recordToText selectedHeader . selectFields) records
 
 
 runDeleteQuery :: FilePath -> SP.Condition -> IO ()
