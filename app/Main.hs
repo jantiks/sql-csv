@@ -48,10 +48,6 @@ executeSQL (UpdateQuery table updates whereClause) = do
             (cond)
         
 executeSQL (InsertQuery table fields values) = do
-    putStrLn $ "asd fileName: " ++ table
-    putStrLn $ "fields: " ++ show fields
-    putStrLn $ "values: " ++ show values
-
     CF.runInsertQuery table (map T.pack fields) (map T.pack values)
 
 

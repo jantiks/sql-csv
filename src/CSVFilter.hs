@@ -143,10 +143,6 @@ runDeleteQuery fileName condition = do
 
 runInsertQuery :: FilePath -> [Text] -> [Text] -> IO ()
 runInsertQuery fileName fields values = do
-    putStrLn $ "fileName: " ++ fileName
-    putStrLn $ "fields: " ++ show fields
-    putStrLn $ "values: " ++ show values
-
     csvData <- BL.readFile fileName
     case decodeByName csvData of
         Left err -> error err
