@@ -119,9 +119,7 @@ parens = Tok.parens lexer
 parseExpr :: Parser Expr
 parseExpr = buildExpressionParser table term
   where
-    table = [ [Prefix (reservedOp "not" >> return (UnOp "not")),
-               Prefix (reservedOp "NOT" >> return (UnOp "not"))]
-            , [Infix (reservedOp "*" >> return (BinOp "*")) AssocLeft
+    table = [ [Infix (reservedOp "*" >> return (BinOp "*")) AssocLeft
               , Infix (reservedOp "/" >> return (BinOp "/")) AssocLeft]
             , [Infix (reservedOp "+" >> return (BinOp "+")) AssocLeft
               , Infix (reservedOp "-" >> return (BinOp "-")) AssocLeft]
@@ -131,6 +129,9 @@ parseExpr = buildExpressionParser table term
               , Infix (reservedOp "<=" >> return (binOpWrapper "<=")) AssocNone
               , Infix (reservedOp "=" >> return (binOpWrapper "=")) AssocNone
               , Infix (reservedOp "!=" >> return (binOpWrapper "!=")) AssocNone]
+              ,
+              [Prefix (reservedOp "not" >> return (UnOp "not")),
+               Prefix (reservedOp "NOT" >> return (UnOp "not"))]
             , [Infix (reservedOp "and" >> return (BinOp "and")) AssocRight,
                Infix (reservedOp "AND" >> return (BinOp "and")) AssocRight]
             , [Infix (reservedOp "or" >> return (BinOp "or")) AssocRight,
