@@ -39,10 +39,10 @@ caseInsensitiveString = try . mapM (\c -> char (toLower c) <|> char (toUpper c))
 parseSQL :: Parser SQLQuery
 parseSQL = do
   spaces
-  query <- try parseSelect
-        <|> try parseUpdate
-        <|> try parseInsert
-        <|> try parseDelete
+  query <- parseSelect
+        <|> parseUpdate
+        <|> parseInsert
+        <|> parseDelete
   spaces
   return query
 

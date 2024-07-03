@@ -9,6 +9,7 @@ import System.Environment (getArgs)
 import Data.List (intercalate)
 import qualified Data.Text as T
 import System.Exit (exitFailure)
+import Data.Maybe (fromMaybe)
 
 main :: IO ()
 main = do
@@ -25,13 +26,7 @@ main = do
 executeSQL :: SQLQuery -> IO ()
 executeSQL (SelectQuery fields table whereClause) = do
     let fieldNames = if fields == ["*"] then [] else map T.pack fields
-    case whereClause of
-        Just cond ->
-            CF.runSQLQuery table fieldNames cond
-        Nothing ->
-            CF.runSQLQuery table fieldNames (Condition $ Field "")
-    -- print records
-
+    CF.runSQLQuery table fieldNames (fromMaybe (Condition $ Field "") whereClause)
 
 executeSQL (DeleteQuery table whereClause) = do
     case whereClause of
