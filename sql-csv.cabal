@@ -26,7 +26,6 @@ source-repository head
 library
   exposed-modules:
       CSVFilter
-      Lib
       SQLParser
   other-modules:
       Paths_sql_csv

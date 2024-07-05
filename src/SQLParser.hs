@@ -72,8 +72,7 @@ parseUpdateField = do
   f <- many1 alphaNum
   spaces
   char '='
-  spaces
-  v <- many1 (noneOf ", \t\n")
+  v <- parseValue
   return (f, v)
 
 parseInsert :: Parser SQLQuery
@@ -154,4 +153,7 @@ parseField :: Parser String
 parseField = spaces *> many1 (noneOf ",)") <* spaces
 
 parseValue :: Parser String
-parseValue = spaces *> many1 (noneOf ",)") <* spaces
+parseValue = spaces *> (quotedValue <|> unquotedValue) <* spaces
+  where
+    quotedValue = between (char '"') (char '"') (many (noneOf "\""))
+    unquotedValue = many1 (noneOf ",)")

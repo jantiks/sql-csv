@@ -150,7 +150,6 @@ runInsertQuery fileName fields values = do
             let newRecord = HM.fromList $ zip fields values
             putStrLn $ "newRecord: " ++ show newRecord
             let updatedRecords = V.snoc v newRecord
-            putStrLn $ "updatedRecords: " ++ show updatedRecords
             let updatedData = encodeByName header (V.toList updatedRecords)
             BL8.writeFile fileName updatedData
             putStrLn ("Records inserted into " ++ fileName)
