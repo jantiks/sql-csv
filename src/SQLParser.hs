@@ -138,7 +138,7 @@ parseExpr = buildExpressionParser table term
                Infix (reservedOp "OR" >> return (BinOp "or")) AssocRight]
             ]
     term = parens parseExpr
-      <|> fmap (DoubleConst . realToFrac) float
+      <|> fmap (DoubleConst . realToFrac) (try float)
       <|> fmap (IntConst . fromInteger) integer
       <|> fmap StrConst stringLiteral
       <|> fmap (Field . trace "Identifier" id) identifier

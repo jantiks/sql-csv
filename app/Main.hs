@@ -39,9 +39,7 @@ executeSQL (UpdateQuery table updates whereClause) = do
     case whereClause of
         Nothing -> putStrLn "UPDATE Query requires a WHERE clause"
         Just cond -> 
-            CF.runUpdateQuery table 
-            (map (\(fld, val) -> (T.pack fld, T.pack val)) updates) 
-            (cond)
+            CF.runUpdateQuery table (map (\(fld, val) -> (T.pack fld, val)) updates) cond
         
 executeSQL (InsertQuery table fields values) = do
     CF.runInsertQuery table (map T.pack fields) (map T.pack values)
