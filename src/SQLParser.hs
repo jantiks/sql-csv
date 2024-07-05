@@ -95,11 +95,10 @@ parseSelectFields = sepBy1 (many1 (alphaNum <|> char '*')) (char ',')
 parseTable :: Parser String
 parseTable = do
   tableName <- many1 (noneOf " \t\n")
-  trace ("Table name: " ++ tableName) $ do
-    let ext = takeExtension tableName
-    if ext == ".csv"
-      then return tableName
-      else fail "Table name must end with .csv"
+  let ext = takeExtension tableName
+  if ext == ".csv"
+    then return tableName
+    else fail "Table name must end with .csv"
 
 stripQuotes :: String -> String
 stripQuotes = reverse . dropWhile (== '"') . reverse . dropWhile (== '"')

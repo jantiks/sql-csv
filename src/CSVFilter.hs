@@ -37,7 +37,8 @@ filterCSV fileName condition = do
         Right (_, v) -> return $ V.filter condition v
 
 recordToText :: [Text] -> CSVRecord -> Text
-recordToText header record = T.intercalate "," $ map (\field -> HM.lookupDefault "" field record) header
+recordToText header record = 
+    T.intercalate "," $ map (\field -> HM.lookupDefault "" field record) header
 
 
 applyCondition :: SP.Condition -> CSVRecord -> Bool
@@ -150,7 +151,6 @@ runInsertQuery fileName fields values = do
         Left err -> error err
         Right (header, v) -> do
             let newRecord = HM.fromList $ zip fields values
-            putStrLn $ "newRecord: " ++ show newRecord
             let updatedRecords = V.snoc v newRecord
             let updatedData = encodeByName header (V.toList updatedRecords)
             BL8.writeFile fileName updatedData
