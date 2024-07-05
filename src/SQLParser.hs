@@ -28,6 +28,7 @@ data Condition = Condition Expr deriving (Show)
 data Expr
   = Field String
   | IntConst Int
+  | DoubleConst Double
   | StrConst String
   | BinOp String Expr Expr
   | UnOp String Expr
@@ -109,6 +110,7 @@ parseWhere = Condition <$> (str "WHERE" *> parseExpr)
 lexer = Tok.makeTokenParser emptyDef
 
 integer = Tok.integer lexer
+float = Tok.float lexer
 stringLiteral = Tok.stringLiteral lexer
 identifier = Tok.identifier lexer
 reservedOp = Tok.reservedOp lexer
@@ -137,6 +139,7 @@ parseExpr = buildExpressionParser table term
                Infix (reservedOp "OR" >> return (BinOp "or")) AssocRight]
             ]
     term = parens parseExpr
+      <|> fmap (DoubleConst . realToFrac) float
       <|> fmap (IntConst . fromInteger) integer
       <|> fmap StrConst stringLiteral
       <|> fmap (Field . trace "Identifier" id) identifier

@@ -47,6 +47,7 @@ applyCondition (SP.Condition expr) record = evalExpr expr
     evalExpr (SP.Field "") = True  -- The case with no `where` clause for SELECT command
     evalExpr (SP.Field field) = error ("unexpected field in condition: " ++ field)
     evalExpr (SP.IntConst _) = error "unexpected integer constant in condition"
+    evalExpr (SP.DoubleConst _) = error "unexpected integer constant in condition"
     evalExpr (SP.StrConst _) = error "unexpected string constant in condition"
     evalExpr (SP.BinOp op left right) =
         case op of
@@ -109,6 +110,7 @@ applyCondition (SP.Condition expr) record = evalExpr expr
             Nothing -> error $ "Field '" ++ field ++ "' doesn't exist in the record"
             Just val -> readTMaybe (T.unpack val)
     evalNumeric (SP.IntConst i) = Just (fromIntegral i)
+    evalNumeric (SP.DoubleConst d) = Just d
     evalNumeric _ = Nothing
 
     readTMaybe :: Read a => String -> Maybe a
