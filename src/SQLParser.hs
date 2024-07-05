@@ -18,7 +18,7 @@ import Text.Parsec.Language (emptyDef)
 
 data SQLQuery
   = SelectQuery [String] String (Maybe Condition)
-  | UpdateQuery String [(String, String)] (Maybe Condition)
+  | UpdateQuery String [(String, Expr)] (Maybe Condition)
   | InsertQuery String [String] [String]
   | DeleteQuery String (Maybe Condition)
   deriving (Show)
@@ -32,7 +32,7 @@ data Expr
   | StrConst String
   | BinOp String Expr Expr
   | UnOp String Expr
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 caseInsensitiveString :: String -> Parser String
 caseInsensitiveString = try . mapM (\c -> char (toLower c) <|> char (toUpper c))
@@ -65,16 +65,18 @@ parseUpdate = do
   whereClause <- optionMaybe parseWhere
   return $ UpdateQuery table updates whereClause
 
-parseUpdates :: Parser [(String, String)]
+parseUpdates :: Parser [(String, Expr)]
 parseUpdates = sepBy1 parseUpdateField (char ',')
 
-parseUpdateField :: Parser (String, String)
+parseUpdateField :: Parser (String, Expr)
 parseUpdateField = do
   f <- many1 alphaNum
   spaces
   char '='
-  v <- parseValue
-  return (f, v)
+  spaces
+  e <- parseExpr
+  return (f, e)
+
 
 parseInsert :: Parser SQLQuery
 parseInsert = do
@@ -119,16 +121,17 @@ parens = Tok.parens lexer
 parseExpr :: Parser Expr
 parseExpr = buildExpressionParser table term
   where
-    table = [ [Infix (reservedOp "*" >> return (BinOp "*")) AssocLeft
+    table = [ 
+              [Infix (reservedOp "*" >> return (BinOp "*")) AssocLeft
               , Infix (reservedOp "/" >> return (BinOp "/")) AssocLeft]
             , [Infix (reservedOp "+" >> return (BinOp "+")) AssocLeft
               , Infix (reservedOp "-" >> return (BinOp "-")) AssocLeft]
-            , [Infix (reservedOp ">" >> return (binOpWrapper ">")) AssocNone
-              , Infix (reservedOp ">=" >> return (binOpWrapper ">=")) AssocNone
-              , Infix (reservedOp "<" >> return (binOpWrapper "<")) AssocNone
-              , Infix (reservedOp "<=" >> return (binOpWrapper "<=")) AssocNone
-              , Infix (reservedOp "=" >> return (binOpWrapper "=")) AssocNone
-              , Infix (reservedOp "!=" >> return (binOpWrapper "!=")) AssocNone]
+            , [Infix (reservedOp ">" >> return (BinOp ">")) AssocNone
+              , Infix (reservedOp ">=" >> return (BinOp ">=")) AssocNone
+              , Infix (reservedOp "<" >> return (BinOp "<")) AssocNone
+              , Infix (reservedOp "<=" >> return (BinOp "<=")) AssocNone
+              , Infix (reservedOp "=" >> return (BinOp "=")) AssocNone
+              , Infix (reservedOp "!=" >> return (BinOp "!=")) AssocNone]
               ,
               [Prefix (reservedOp "not" >> return (UnOp "not")),
                Prefix (reservedOp "NOT" >> return (UnOp "not"))]
@@ -141,15 +144,7 @@ parseExpr = buildExpressionParser table term
       <|> fmap (DoubleConst . realToFrac) (try float)
       <|> fmap (IntConst . fromInteger) integer
       <|> fmap StrConst stringLiteral
-      <|> fmap (Field . trace "Identifier" id) identifier
-
-   -- Used for handling quoted and unqoted Strings
-    binOpWrapper :: String -> Expr -> Expr -> Expr
-    binOpWrapper op left right = BinOp op left (convertToStrConstIfNeeded right)
-
-    convertToStrConstIfNeeded :: Expr -> Expr
-    convertToStrConstIfNeeded (Field str) = StrConst str
-    convertToStrConstIfNeeded expr = expr
+      <|> fmap Field identifier
 
 parseField :: Parser String
 parseField = spaces *> many1 (noneOf ",)") <* spaces

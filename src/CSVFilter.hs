@@ -54,10 +54,10 @@ applyCondition (SP.Condition expr) record = evalExpr expr
         case op of
             "="  -> evalEquality left right
             "!=" -> not (evalEquality left right)
-            ">"  -> evalComparison (>) left right
-            "<"  -> evalComparison (<) left right
-            ">=" -> evalComparison (>=) left right
-            "<=" -> evalComparison (<=) left right
+            ">"  -> evalComparison (>) (>) left right
+            "<"  -> evalComparison (<) (<) left right
+            ">=" -> evalComparison (>=) (>=) left right
+            "<=" -> evalComparison (<=) (<=) left right
             "and" -> evalLogical (&&) left right
             "or"  -> evalLogical (||) left right
             _     -> error $ "unsupported operator: " ++ op
@@ -75,14 +75,16 @@ applyCondition (SP.Condition expr) record = evalExpr expr
                     (Just l, Just r) -> l == r
                     _ -> trace "Comparison failed" False
 
-
-    evalComparison :: (T.Text -> T.Text -> Bool) -> SP.Expr -> SP.Expr -> Bool
-    evalComparison cmp left right =
-        case (evalNumeric left, evalNumeric right) of
-            (Just l, Just r) -> cmp (T.pack $ show l) (T.pack $ show r)
-            _ -> case (evalText left, evalText right) of
-                    (Just l, Just r) -> cmp l r
-                    _ -> False
+    evalComparison :: (T.Text -> T.Text -> Bool) -> (Double -> Double -> Bool) -> SP.Expr -> SP.Expr -> Bool
+    evalComparison textCmp numCmp left right =
+        case (evalField left, evalField right) of
+            (Just (Right l), Just (Right r)) -> numCmp l r
+            (Just (Left l), Just (Left r)) -> textCmp l r
+            _ -> case (evalNumeric left, evalNumeric right) of
+                    (Just l, Just r) -> numCmp l r
+                    _ -> case (evalText left, evalText right) of
+                            (Just l, Just r) -> textCmp l r
+                            _ -> False
 
     evalLogical :: (Bool -> Bool -> Bool) -> SP.Expr -> SP.Expr -> Bool
     evalLogical lg left right = lg (evalExpr left) (evalExpr right)
@@ -90,7 +92,12 @@ applyCondition (SP.Condition expr) record = evalExpr expr
     evalText :: SP.Expr -> Maybe T.Text
     evalText (SP.Field field) = 
         case HM.lookup (T.pack field) record of
-            Nothing -> error $ "field '" ++ field ++ "' doesn't exist in the record"
+            Nothing -> 
+                error (
+                "field '" ++ 
+                field ++ 
+                "' doesn't exist in the record, maybe you wanted to do string comparision instead?"
+                )
             Just val -> Just val
     evalText (SP.StrConst s) = Just (T.pack s)
     evalText (SP.IntConst i) = Just (T.pack $ show i)
@@ -109,13 +116,19 @@ applyCondition (SP.Condition expr) record = evalExpr expr
     evalNumeric (SP.Field field) = 
         case HM.lookup (T.pack field) record of
             Nothing -> error $ "Field '" ++ field ++ "' doesn't exist in the record"
-            Just val -> readTMaybe (T.unpack val)
+            Just val -> readMaybe (T.unpack val)
     evalNumeric (SP.IntConst i) = Just (fromIntegral i)
     evalNumeric (SP.DoubleConst d) = Just d
     evalNumeric _ = Nothing
 
-    readTMaybe :: Read a => String -> Maybe a
-    readTMaybe = readMaybe
+    evalField :: SP.Expr -> Maybe (Either T.Text Double)
+    evalField (SP.Field field) = 
+        case HM.lookup (T.pack field) record of
+            Nothing -> Nothing
+            Just val -> case readMaybe (T.unpack val) of
+                Just d -> Just (Right d)  -- Parsed as Double
+                Nothing -> Just (Left val)  -- Remain as Text
+    evalField _ = Nothing
     
 runSQLQuery :: FilePath -> [Text] -> SP.Condition -> IO ()
 runSQLQuery fileName fields condition = do
@@ -156,18 +169,76 @@ runInsertQuery fileName fields values = do
             BL8.writeFile fileName updatedData
             putStrLn ("Records inserted into " ++ fileName)
 
-runUpdateQuery :: FilePath -> [(Text, Text)] -> SP.Condition -> IO ()
+runUpdateQuery :: FilePath -> [(T.Text, SP.Expr)] -> SP.Condition -> IO ()
 runUpdateQuery fileName updates condition = do
     csvData <- BL.readFile fileName
     case decodeByName csvData of
         Left err -> error err
         Right (header, v) -> do
-            let updatedRecords = V.map updateIfMatches v
+            let updatedRecords = V.map (updateIfMatches condition updates) v
             let updatedData = encodeByName header (V.toList updatedRecords)
             BL8.writeFile fileName updatedData
             putStrLn "Records updated"
   where
-    updateIfMatches record =
-        if applyCondition condition record
-        then foldr (uncurry HM.insert) record updates
+    updateIfMatches :: SP.Condition -> [(T.Text, SP.Expr)] -> CSVRecord -> CSVRecord
+    updateIfMatches cond updates record =
+        if applyCondition cond record
+        then foldr applyUpdate record updates
         else record
+    
+    applyUpdate :: (T.Text, SP.Expr) -> CSVRecord -> CSVRecord
+    applyUpdate (field, expr) record =
+        case evalExpr record expr of
+            Just newValue -> HM.insert field newValue record
+            Nothing -> record
+
+    evalExpr :: CSVRecord -> SP.Expr -> Maybe Text
+    evalExpr record (SP.Field field) = HM.lookup (T.pack field) record
+    evalExpr _ (SP.StrConst s) = Just (T.pack s)
+    evalExpr _ (SP.IntConst i) = Just (T.pack $ show i)
+    evalExpr _ (SP.DoubleConst d) = Just (T.pack $ show d)
+    evalExpr record (SP.BinOp op left right) =
+        case op of
+            "+" -> do
+                l <- evalNumeric record left
+                r <- evalNumeric record right
+                return $ showAsText (l + r)
+            "-" -> do
+                l <- evalNumeric record left
+                r <- evalNumeric record right
+                return $ showAsText (l - r)
+            "*" -> do
+                l <- evalNumeric record left
+                r <- evalNumeric record right
+                return $ showAsText (l * r)
+            "/" -> do
+                l <- evalNumeric record left
+                r <- evalNumeric record right
+                if r /= 0
+                    then return $ showAsText (l / r)
+                    else Nothing
+            _ -> Nothing
+    evalExpr _ _ = Nothing
+
+    evalNumeric :: CSVRecord -> SP.Expr -> Maybe Double
+    evalNumeric record (SP.Field field) =
+        case HM.lookup (T.pack field) record of
+            Nothing -> Nothing
+            Just val -> readMaybe (T.unpack val)
+    evalNumeric _ (SP.IntConst i) = Just (fromIntegral i)
+    evalNumeric _ (SP.DoubleConst d) = Just d
+    evalNumeric record (SP.BinOp op left right) = 
+        case (evalNumeric record left, evalNumeric record right) of
+            (Just l, Just r) -> case op of
+                "+" -> Just (l + r)
+                "-" -> Just (l - r)
+                "*" -> Just (l * r)
+                "/" -> if r /= 0 then Just (l / r) else Nothing
+                _   -> Nothing
+            _ -> Nothing
+    evalNumeric _ _ = Nothing
+
+    showAsText :: Double -> Text
+    showAsText d = if fromIntegral (round d :: Int) == d
+                   then T.pack $ show (round d :: Int)
+                   else T.pack $ show d
