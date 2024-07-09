@@ -27,7 +27,7 @@ main = do
 executeSQL :: SQLQuery -> IO ()
 executeSQL (SelectQuery fields table whereClause) = do
     let fieldNames = if fields == ["*"] then [] else map T.pack fields
-    CF.runSQLQuery table fieldNames (fromMaybe (Condition $ Field "") whereClause)
+    CF.runSQLQuery table fieldNames (fromMaybe (Condition (Field "")) whereClause)
 
 executeSQL (DeleteQuery table whereClause) = do
     case whereClause of
@@ -36,10 +36,7 @@ executeSQL (DeleteQuery table whereClause) = do
             CF.runDeleteQuery table cond
 
 executeSQL (UpdateQuery table updates whereClause) = do
-    case whereClause of
-        Nothing -> putStrLn "UPDATE Query requires a WHERE clause"
-        Just cond -> 
-            trace ("ASD UPDATE QUERY" ++ show updates) $ CF.runUpdateQuery table (map (\(fld, val) -> (T.pack fld, val)) updates) cond
+    CF.runUpdateQuery table (map (\(fld, val) -> (T.pack fld, val)) updates) (fromMaybe (Condition (Field "")) whereClause)
         
 executeSQL (InsertQuery table fields values) = do
     CF.runInsertQuery table (map T.pack fields) (map T.pack values)
