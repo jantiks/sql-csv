@@ -121,7 +121,7 @@ parens = Tok.parens lexer
 parseExpr :: Parser Expr
 parseExpr = buildExpressionParser table term
   where
-    table = [ 
+    table = [
               [Infix (reservedOp "*" >> return (BinOp "*")) AssocLeft
               , Infix (reservedOp "/" >> return (BinOp "/")) AssocLeft]
             , [Infix (reservedOp "+" >> return (BinOp "+")) AssocLeft
@@ -149,8 +149,16 @@ parseExpr = buildExpressionParser table term
 parseField :: Parser String
 parseField = spaces *> many1 (noneOf ",)") <* spaces
 
+parseStrConst :: Parser String
+parseStrConst = between (char '"') (char '"') (many (noneOf "\""))
+
 parseValue :: Parser String
-parseValue = spaces *> (quotedValue <|> unquotedValue) <* spaces
+parseValue = spaces *> (parseStrValue <|> parseDoubleValue <|> parseIntValue) <* spaces
   where
-    quotedValue = between (char '"') (char '"') (many (noneOf "\""))
-    unquotedValue = many1 (noneOf ",)")
+    parseStrValue = do
+      parseStrConst
+    parseDoubleValue = do
+      dbl <- try float
+      return (show dbl)
+    parseIntValue = do
+      show <$> integer

@@ -24,6 +24,7 @@ import Debug.Trace (trace)
 
 import qualified SQLParser as SP
 import qualified Data.Text.Encoding as T
+import Control.Exception
 
 
 type CSVRecord = HM.HashMap Text Text
@@ -157,17 +158,20 @@ runDeleteQuery fileName condition = do
             BL8.writeFile fileName updatedData
             putStrLn "Records deleted"
 
+
 runInsertQuery :: FilePath -> [Text] -> [Text] -> IO ()
 runInsertQuery fileName fields values = do
-    csvData <- BL.readFile fileName
-    case decodeByName csvData of
-        Left err -> error err
-        Right (header, v) -> do
-            let newRecord = HM.fromList $ zip fields values
-            let updatedRecords = V.snoc v newRecord
-            let updatedData = encodeByName header (V.toList updatedRecords)
-            BL8.writeFile fileName updatedData
-            putStrLn ("Records inserted into " ++ fileName)
+    result <- try (BL.readFile fileName) :: IO (Either SomeException BL.ByteString)
+    case result of
+        Left err -> putStrLn $ "Error reading file: " ++ show err
+        Right csvData -> case decodeByName csvData of
+            Left err -> putStrLn $ "Error decoding CSV data: " ++ err
+            Right (header, v) -> do
+                let newRecord = HM.fromList $ zip fields values
+                let updatedRecords = V.snoc v newRecord
+                let updatedData = encodeByName header (V.toList updatedRecords)
+                BL8.writeFile fileName updatedData
+                putStrLn ("Records inserted into " ++ fileName)
 
 runUpdateQuery :: FilePath -> [(T.Text, SP.Expr)] -> SP.Condition -> IO ()
 runUpdateQuery fileName updates condition = do
@@ -175,11 +179,28 @@ runUpdateQuery fileName updates condition = do
     case decodeByName csvData of
         Left err -> error err
         Right (header, v) -> do
+            validateUpdates header updates
             let updatedRecords = V.map (updateIfMatches condition updates) v
             let updatedData = encodeByName header (V.toList updatedRecords)
             BL8.writeFile fileName updatedData
             putStrLn "Records updated"
   where
+    validateUpdates :: Header -> [(T.Text, SP.Expr)] -> IO ()
+    validateUpdates header updates =
+        let headerFields = map T.decodeUtf8 (V.toList header)
+            updateFields = concatMap extractFields updates
+            missingFields = filter (`notElem` headerFields) updateFields
+        in if null missingFields
+           then return ()
+           else error $ "Missing fields in CSV: " ++ show missingFields
+
+    extractFields :: (T.Text, SP.Expr) -> [T.Text]
+    extractFields (_, expr) = go expr
+      where
+        go (SP.Field field) = [T.pack field]
+        go (SP.BinOp _ left right) = go left ++ go right
+        go _ = []
+
     updateIfMatches :: SP.Condition -> [(T.Text, SP.Expr)] -> CSVRecord -> CSVRecord
     updateIfMatches cond updates record =
         if applyCondition cond record
@@ -193,7 +214,7 @@ runUpdateQuery fileName updates condition = do
             Nothing -> record
 
     evalExpr :: CSVRecord -> SP.Expr -> Maybe Text
-    evalExpr record (SP.Field field) = HM.lookup (T.pack field) record
+    evalExpr record (SP.Field field) = trace ("ASD CHECKING FUNCS") $ HM.lookup (T.pack field) record
     evalExpr _ (SP.StrConst s) = Just (T.pack s)
     evalExpr _ (SP.IntConst i) = Just (T.pack $ show i)
     evalExpr _ (SP.DoubleConst d) = Just (T.pack $ show d)
