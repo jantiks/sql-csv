@@ -10,7 +10,7 @@ module CSVFilter (
     runUpdateQuery,
 ) where
 
-import Data.Csv
+import Data.Csv hiding (record, header)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import qualified Data.Vector as V
@@ -24,6 +24,7 @@ import Debug.Trace (trace)
 import qualified SQLParser as SP
 import qualified Data.Text.Encoding as TE
 import Control.Exception
+import Prelude hiding (exp)
 
 type CSVRecord = HM.HashMap Text Text
 
@@ -59,9 +60,9 @@ applyCondition (SP.Condition expr) record = evalExpr expr
             "or"  -> evalLogical (||) left right
             _     -> error $ "unsupported operator: " ++ op
 
-    evalExpr (SP.UnOp op expr) =
+    evalExpr (SP.UnOp op exp) =
         case op of
-            "not" -> not (evalExpr expr)
+            "not" -> not (evalExpr exp)
             _     -> error $ "Unsupported operator: " ++ op
 
     evalEquality :: SP.Expr -> SP.Expr -> Bool
@@ -105,8 +106,8 @@ applyCondition (SP.Condition expr) record = evalExpr expr
         case HM.lookup (T.pack field) record of
             Nothing -> Nothing
             Just val -> case readMaybe (T.unpack val) of
-                Just d -> Just (Right d)  -- Parsed as Double
-                Nothing -> Just (Left val)  -- Remain as Text
+                Just d -> Just (Right d)
+                Nothing -> Just (Left val)
     evalField _ = Nothing
 
 runSQLQuery :: FilePath -> [Text] -> SP.Condition -> IO ()
@@ -162,9 +163,9 @@ runUpdateQuery fileName updates condition = do
             putStrLn "Records updated"
   where
     validateUpdates :: Header -> [(T.Text, SP.Expr)] -> IO ()
-    validateUpdates header updates =
+    validateUpdates header upd =
         let headerFields = map TE.decodeUtf8 (V.toList header)
-            updateFields = concatMap extractFields updates
+            updateFields = concatMap extractFields upd
             missingFields = filter (`notElem` headerFields) updateFields
         in if null missingFields
            then return ()
@@ -178,9 +179,9 @@ runUpdateQuery fileName updates condition = do
         go _ = []
 
     updateIfMatches :: SP.Condition -> [(T.Text, SP.Expr)] -> CSVRecord -> CSVRecord
-    updateIfMatches cond updates record =
+    updateIfMatches cond upd record =
         if applyCondition cond record
-        then foldr applyUpdate record updates
+        then foldr applyUpdate record upd
         else record
     
     applyUpdate :: (T.Text, SP.Expr) -> CSVRecord -> CSVRecord
@@ -190,7 +191,7 @@ runUpdateQuery fileName updates condition = do
             Nothing -> record
 
     evalExpr :: CSVRecord -> SP.Expr -> Maybe Text
-    evalExpr record (SP.Field field) = trace ("ASD CHECKING FUNCS") $ HM.lookup (T.pack field) record
+    evalExpr record (SP.Field field) = HM.lookup (T.pack field) record
     evalExpr _ (SP.StrConst s) = Just (T.pack s)
     evalExpr _ (SP.IntConst i) = Just (T.pack $ show i)
     evalExpr _ (SP.DoubleConst d) = Just (T.pack $ show d)

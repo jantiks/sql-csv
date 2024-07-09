@@ -6,21 +6,19 @@ import SQLParser (SQLQuery(..), parseSQL, Condition(..), Expr(Field))
 import qualified CSVFilter as CF
 import Text.Parsec (parse)
 import System.Environment (getArgs)
-import Data.List (intercalate)
 import qualified Data.Text as T
 import System.Exit (exitFailure)
 import Data.Maybe (fromMaybe)
-import Debug.Trace (trace)
 
 main :: IO ()
 main = do
   args <- getArgs
   if null args
-     then do 
+     then do
         showUsage
         exitFailure
   else
-    case parse parseSQL "" (intercalate " " args) of
+    case parse parseSQL "" (unwords args) of
         Left err  -> print err
         Right sql -> executeSQL sql
 
@@ -32,16 +30,16 @@ executeSQL (SelectQuery fields table whereClause) = do
 executeSQL (DeleteQuery table whereClause) = do
     case whereClause of
         Nothing -> putStrLn "DELETE Query requires a WHERE clause"
-        Just cond -> 
+        Just cond ->
             CF.runDeleteQuery table cond
 
 executeSQL (UpdateQuery table updates whereClause) = do
     CF.runUpdateQuery table (map (\(fld, val) -> (T.pack fld, val)) updates) (fromMaybe (Condition (Field "")) whereClause)
-        
+
 executeSQL (InsertQuery table fields values) = do
     CF.runInsertQuery table (map T.pack fields) (map T.pack values)
 
 
 showUsage :: IO ()
-showUsage = do 
+showUsage = do
     putStrLn "Usage: sql-csv-exe '<Command>' '<Filepath>' WHERE '<Condition>'"

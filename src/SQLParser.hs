@@ -11,7 +11,6 @@ import Text.Parsec
 import Text.Parsec.String (Parser)
 import Data.Char
 import System.FilePath (takeExtension)
-import Debug.Trace (trace)
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as Tok
 import Text.Parsec.Language (emptyDef)
